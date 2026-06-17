@@ -91,25 +91,27 @@ function code(text, indentLeft) {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Header: "Student Name: [ptab] Roll No:" — Verdana Bold 10pt
+// Header Creator
 // ──────────────────────────────────────────────────────────────
-const pageHeader = new Header({
-  children: [
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: 'Student Name: ',
-          bold: true, font: 'Verdana', size: 20,
-        }),
-        new PositionalTabRun(),
-        new TextRun({
-          text: 'Roll No:',
-          bold: true, font: 'Verdana', size: 20,
-        }),
-      ],
-    }),
-  ],
-});
+function createPageHeader(name, rollNumber) {
+  return new Header({
+    children: [
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: `Student Name: ${name}`,
+            bold: true, font: 'Verdana', size: 20,
+          }),
+          new PositionalTabRun(),
+          new TextRun({
+            text: `Roll No: ${rollNumber}`,
+            bold: true, font: 'Verdana', size: 20,
+          }),
+        ],
+      }),
+    ],
+  });
+}
 
 // ──────────────────────────────────────────────────────────────
 // Footer: "I. M.Tech (CSE), II Sem   [ptab]   Advanced Algorithms Lab"
@@ -293,7 +295,7 @@ function processPythonCode(codeContent) {
 }
 
 // ──────────────────────────────────────────────────────────────
-// Generate Experiment Paragraphs
+// Generate Experiment Paragraphs (Shared Context)
 // ──────────────────────────────────────────────────────────────
 const experimentParagraphs = [];
 const parsedExps = parseMarkdown('lab_record_clean.md');
@@ -368,7 +370,6 @@ for (const exp of parsedExps) {
   if (exp.conclusion) {
     experimentParagraphs.push(dp([B('Conclusion:')]));
     experimentParagraphs.push(dp([R(exp.conclusion)]));
-    // experimentParagraphs.push(blank());
   }
 }
 
@@ -400,36 +401,59 @@ const lastPage = [
 ];
 
 // ──────────────────────────────────────────────────────────────
-// Build Document
+// Batch Generation Function
 // ──────────────────────────────────────────────────────────────
-const doc = new Document({
-  sections: [
-    {
-      properties: {
-        page: {
-          size: { width: 11906, height: 16838 },       // A4
-          margin: { top: 1440, right: 1440, bottom: 1440, left: 1440, header: 708, footer: 708 },
-          borders: pageBorderOpts,
+function generateDocumentForStudent(name, rollNumber) {
+  const pageHeader = createPageHeader(name, rollNumber);
+
+  const doc = new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            size: { width: 11906, height: 16838 },       // A4
+            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440, header: 708, footer: 708 },
+            borders: pageBorderOpts,
+          },
         },
+        headers: { default: pageHeader },
+        footers: { default: pageFooter },
+        children: [
+          ...experimentParagraphs,
+          new Paragraph({ children: [new PageBreak()] }),
+          ...lastPage,
+        ],
       },
-      headers: { default: pageHeader },
-      footers: { default: pageFooter },
-      children: [
-        ...experimentParagraphs,
+    ],
+  });
 
-        // ── Page break → Last Page ──
-        new Paragraph({ children: [new PageBreak()] }),
+  doc.settings.root.push(new BordersDoNotSurroundHeader());
+  doc.settings.root.push(new BordersDoNotSurroundFooter());
 
-        ...lastPage,
-      ],
-    },
-  ],
-});
+  return Packer.toBuffer(doc).then((buffer) => {
+    const fileName = `./outputs/ADS LAB RECORD ${rollNumber}-${name}.docx`;
+    fs.writeFileSync(fileName, buffer);
+    console.log(`✅  ${fileName} written successfully!`);
+  });
+}
 
-doc.settings.root.push(new BordersDoNotSurroundHeader());
-doc.settings.root.push(new BordersDoNotSurroundFooter());
+// ──────────────────────────────────────────────────────────────
+// Main Loop Execution
+// ──────────────────────────────────────────────────────────────
+const students = [
+  { rollNumber: '257Y1D5801', name: 'Anam Koteswari' },
+  { rollNumber: '257Y1D5802', name: 'Gangidi Gyaneshwar Reddy' },
+  { rollNumber: '257Y1D5803', name: 'Madamanchi Krishna Varun' },
+  { rollNumber: '257Y1D5804', name: 'Munagavalasa Sagar Chandra Patnaik' },
+  { rollNumber: '257Y1D5805', name: 'Srinivas Rao Tammireddy' },
+  { rollNumber: '257Y1D5806', name: 'Harthika Rayala' }
+];
 
-Packer.toBuffer(doc).then((buffer) => {
-  fs.writeFileSync('./outputs/lab_record_recreated.docx', buffer);
-  console.log('✅  lab_record_recreated.docx written successfully!');
-});
+async function run() {
+  for (const student of students) {
+    await generateDocumentForStudent(student.name, student.rollNumber);
+  }
+  console.log("🎉 All student record files have been successfully compiled!");
+}
+
+run().catch(console.error);
