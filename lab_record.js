@@ -172,30 +172,30 @@ const experimentTitles = {
 function parseMarkdown(filePath) {
   const content = fs.readFileSync(filePath, 'utf8');
   const sections = content.split(/##\s+Experiment-/i);
-
+  
   const experiments = [];
-
+  
   for (let i = 1; i < sections.length; i++) {
     const rawSection = sections[i];
     const lines = rawSection.split(/\r?\n/).map(l => l.trimEnd());
-
+    
     const id = parseInt(lines[0].trim(), 10);
-
+    
     let aim = '';
     let description = '';
     let conclusion = '';
     let title = '';
-
+    
     let currentField = 'TITLE';
     let titleLines = [];
     let descLines = [];
     let concLines = [];
-
+    
     for (let j = 1; j < lines.length; j++) {
       const line = lines[j];
       const lineTrim = line.trim();
       const lineUpper = lineTrim.toUpperCase();
-
+      
       if (lineUpper.startsWith('AIM:')) {
         aim = lineTrim.substring(4).trim();
         currentField = 'AIM';
@@ -224,7 +224,7 @@ function parseMarkdown(filePath) {
       if (lineTrim.startsWith('##')) {
         break;
       }
-
+      
       if (currentField === 'TITLE') {
         if (lineTrim) titleLines.push(lineTrim);
       } else if (currentField === 'DESCRIPTION') {
@@ -233,14 +233,13 @@ function parseMarkdown(filePath) {
         if (lineTrim) concLines.push(lineTrim);
       }
     }
-
+    
     title = titleLines.join(' ');
     description = descLines.join(' ');
     conclusion = concLines.join(' ');
-
-    // Override/fallback using experimentTitles mapping
+    
     title = experimentTitles[id] || title || `Experiment ${id}`;
-
+    
     experiments.push({
       id,
       title,
@@ -252,130 +251,162 @@ function parseMarkdown(filePath) {
       hasConclusion: !!conclusion,
     });
   }
-
+  
   return experiments;
 }
 
 function processPythonCode(codeContent) {
   const lines = codeContent.split(/\r?\n/);
   const processedLines = [];
-
+  
   for (const line of lines) {
     const trimmed = line.trim();
-
-    // 1. Skip pure comment lines
+    
     if (trimmed.startsWith('#')) {
       continue;
     }
-
-    // 2. Strip inline comments
+    
     let cleanedLine = line;
     const hashIdx = line.indexOf('#');
     if (hashIdx !== -1) {
       cleanedLine = line.substring(0, hashIdx).trimEnd();
     }
-
-    // 3. Skip consecutive blank lines
+    
     if (cleanedLine.trim() === '') {
       if (processedLines.length > 0 && processedLines[processedLines.length - 1].trim() !== '') {
         processedLines.push('');
       }
       continue;
     }
-
+    
     processedLines.push(cleanedLine);
   }
-
-  // Clean up trailing empty lines
+  
   while (processedLines.length > 0 && processedLines[processedLines.length - 1].trim() === '') {
     processedLines.pop();
   }
-
+  
   return processedLines;
 }
 
 // ──────────────────────────────────────────────────────────────
-// Generate Experiment Paragraphs (Shared Context)
+// Input Customization Logic per Student
 // ──────────────────────────────────────────────────────────────
-const experimentParagraphs = [];
-const parsedExps = parseMarkdown('lab_record_clean.md');
-
-for (const exp of parsedExps) {
-  // Page break before subsequent experiments
-  if (exp.id > 1) {
-    experimentParagraphs.push(new Paragraph({ children: [new PageBreak()] }));
-  }
-
-  // 1. Experiment Header
-  experimentParagraphs.push(
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [B(`Experiment-${exp.id}`)],
-    })
-  );
-  experimentParagraphs.push(blank());
-
-  // 2. Title
-  experimentParagraphs.push(dp([B(exp.title)]));
-  experimentParagraphs.push(blank());
-
-  // 3. AIM
-  experimentParagraphs.push(dp([B('AIM: '), R(exp.aim)]));
-  experimentParagraphs.push(blank());
-
-  // 4. Description
-  experimentParagraphs.push(dp([B('Description: ')]));
-  if (exp.description) {
-    experimentParagraphs.push(dp([R(exp.description)]));
-  }
-  experimentParagraphs.push(blank());
-
-  // 5. Program Header
-  experimentParagraphs.push(dp([B('Program:')]));
-
-  // 6. Python Code (Read, Clean Comments, Format)
-  const codeRaw = fs.readFileSync(exp.codeFile, 'utf8');
-  const codeLinesClean = processPythonCode(codeRaw);
-  for (const line of codeLinesClean) {
-    experimentParagraphs.push(code(line));
-  }
-  experimentParagraphs.push(blank());
-
-  // 7. INPUT (only if hasInput is true)
-  if (exp.hasInput) {
-    experimentParagraphs.push(dp([B('INPUT: ')]));
-    experimentParagraphs.push(blank());
-  }
-
-  // 8. OUTPUT Header
-  experimentParagraphs.push(dp([B('OUTPUT:-')]));
-
-  // 9. Output lines (Execute script and capture stdout)
-  try {
-    const stdout = execSync(`python ${exp.codeFile}`, { encoding: 'utf8' });
-    const stdoutLines = stdout.split(/\r?\n/);
-    if (stdoutLines.length > 0 && stdoutLines[stdoutLines.length - 1] === '') {
-      stdoutLines.pop();
+function modifyInputs(expId, codeRaw, studentIndex) {
+  let modifiedCode = codeRaw;
+  const offset = studentIndex;
+  
+  switch(expId) {
+    case 1: {
+      const newCostMatrix = `cost_matrix = [
+    [${9 + offset}, ${2 + offset}, ${7 + offset}, ${8 + offset}],
+    [${6 + offset}, ${4 + offset}, ${3 + offset}, ${7 + offset}],
+    [${5 + offset}, ${8 + offset}, ${1 + offset}, ${8 + offset}],
+    [${7 + offset}, ${6 + offset}, ${9 + offset}, ${4 + offset}]
+]`;
+      modifiedCode = modifiedCode.replace(/cost_matrix\s*=\s*\[\s*\[[^\]]+\](?:,\s*\[[^\]]+\])*\s*\]/m, newCostMatrix);
+      break;
     }
-    for (const line of stdoutLines) {
-      experimentParagraphs.push(code(line));
+    case 2: {
+      const scale = studentIndex * 11;
+      modifiedCode = modifiedCode.replace(/x\s*=\s*\d+/, `x = ${4321 + scale}`);
+      modifiedCode = modifiedCode.replace(/y\s*=\s*\d+/, `y = ${8765 - scale}`);
+      break;
     }
-  } catch (err) {
-    console.error(`Error running ${exp.codeFile}:`, err.message);
-    experimentParagraphs.push(code(`# Error executing script: ${err.message}`));
+    case 3: {
+      const scale = studentIndex * 5;
+      modifiedCode = modifiedCode.replace(/values\s*=\s*\[\s*60,\s*100,\s*120\s*\]/, `values = [${60 + scale}, ${100 + scale}, ${120 + scale}]`);
+      modifiedCode = modifiedCode.replace(/capacity\s*=\s*50/, `capacity = ${50 + studentIndex}`);
+      break;
+    }
+    case 4: {
+      modifiedCode = modifiedCode.replace(/b\s*=\s*\[\s*8,\s*-11,\s*-3\s*\]/, `b = [${8 + offset}, ${-11 + offset}, ${-3 - offset}]`);
+      break;
+    }
+    case 5: {
+      modifiedCode = modifiedCode.replace(/A\s*=\s*np\.array\(\s*\[\s*\[4,\s*3\], \s*\[6,\s*3\]\s*\]\s*\)/, `A = np.array([[${4 + offset}, ${3 + offset}], [6, ${3 - offset}]])`);
+      break;
+    }
+    case 6: {
+      let newGraph;
+      if (studentIndex % 3 === 0) {
+        newGraph = `graph = [
+    [0, 1, 1],
+    [0, 0, 1],
+    [1, 0, 0]
+]`;
+      } else if (studentIndex % 3 === 1) {
+        newGraph = `graph = [
+    [0, 1, 0],
+    [1, 0, 1],
+    [1, 0, 0]
+]`;
+      } else {
+        newGraph = `graph = [
+    [0, 1, 0],
+    [0, 0, 1],
+    [1, 1, 0]
+]`;
+      }
+      modifiedCode = modifiedCode.replace(/graph\s*=\s*\[\s*\[[^\]]+\](?:,\s*\[[^\]]+\])*\s*\]/m, newGraph);
+      break;
+    }
+    case 7: {
+      let newText = "ABABDABACDABABCABAB";
+      let newPattern = "ABABCABAB";
+      if (studentIndex === 1) {
+        newText = "CBABDABACDABABCABAB";
+      } else if (studentIndex === 2) {
+        newText = "ABABDABACDABADCABAB";
+        newPattern = "ABADCABAB";
+      } else if (studentIndex === 3) {
+        newText = "ABABDABACDABABCACAB";
+        newPattern = "ABABCACAB";
+      } else if (studentIndex === 4) {
+        newText = "ABABFABACDABABCABAB";
+        newPattern = "ABABCABAB";
+      } else if (studentIndex === 5) {
+        newText = "ABABDABACDABABCABAC";
+        newPattern = "ABABCABAC";
+      }
+      modifiedCode = modifiedCode.replace(/text\s*=\s*".*?"/, `text = "${newText}"`);
+      modifiedCode = modifiedCode.replace(/pattern\s*=\s*".*?"/, `pattern = "${newPattern}"`);
+      break;
+    }
+    case 8: {
+      let newPattern = "ABABCABB";
+      if (studentIndex === 1) newPattern = "ABABCABA";
+      else if (studentIndex === 2) newPattern = "ABABDABA";
+      else if (studentIndex === 3) newPattern = "ABACDABA";
+      else if (studentIndex === 4) newPattern = "DABABCAB";
+      else if (studentIndex === 5) newPattern = "CDABABC";
+      modifiedCode = modifiedCode.replace(/pattern\s*=\s*".*?"/, `pattern = "${newPattern}"`);
+      break;
+    }
+    case 9: {
+      const baseArr = [12, 11, 13, 5, 6, 7];
+      const newArr = baseArr.map(val => val + studentIndex * 3);
+      modifiedCode = modifiedCode.replace(/arr\s*=\s*\[.*?\]/, `arr = [${newArr.join(', ')}]`);
+      break;
+    }
+    case 10: {
+      const newCapacity = `capacity = [
+    [0, ${16 + offset}, ${13 - offset}, 0, 0, 0],
+    [0, 0, ${10 + offset}, ${12 - offset}, 0, 0],
+    [0, 4, 0, 0, ${14 + offset}, 0],
+    [0, 0, ${9 - offset}, 0, 0, ${20 + offset}],
+    [0, 0, 0, 7, 0, ${4 + offset}],
+    [0, 0, 0, 0, 0, 0]
+]`;
+      modifiedCode = modifiedCode.replace(/capacity\s*=\s*\[\s*\[[^\]]+\](?:,\s*\[[^\]]+\])*\s*\]/m, newCapacity);
+      break;
+    }
   }
-  experimentParagraphs.push(blank());
-
-  // 10. Conclusion
-  if (exp.conclusion) {
-    experimentParagraphs.push(dp([B('Conclusion:')]));
-    experimentParagraphs.push(dp([R(exp.conclusion)]));
-  }
+  return modifiedCode;
 }
 
 // ──────────────────────────────────────────────────────────────
-// Last Page — Additional Experiment / Micro Project
-// Centered, Times New Roman Bold 12pt
+// Last Page Layout Helpers
 // ──────────────────────────────────────────────────────────────
 function centeredBlank() {
   return new Paragraph({
@@ -403,8 +434,90 @@ const lastPage = [
 // ──────────────────────────────────────────────────────────────
 // Batch Generation Function
 // ──────────────────────────────────────────────────────────────
-function generateDocumentForStudent(name, rollNumber) {
+const parsedExps = parseMarkdown('lab_record_clean.md');
+
+function generateDocumentForStudent(name, rollNumber, studentIndex) {
   const pageHeader = createPageHeader(name, rollNumber);
+  const experimentParagraphs = [];
+  
+  for (const exp of parsedExps) {
+    if (exp.id > 1) {
+      experimentParagraphs.push(new Paragraph({ children: [new PageBreak()] }));
+    }
+
+    // 1. Experiment Header
+    experimentParagraphs.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [B(`Experiment-${exp.id}`)],
+      })
+    );
+    experimentParagraphs.push(blank());
+
+    // 2. Title
+    experimentParagraphs.push(dp([B(exp.title)]));
+    experimentParagraphs.push(blank());
+
+    // 3. AIM
+    experimentParagraphs.push(dp([B('AIM: '), R(exp.aim)]));
+    experimentParagraphs.push(blank());
+
+    // 4. Description
+    experimentParagraphs.push(dp([B('Description: ')]));
+    if (exp.description) {
+      experimentParagraphs.push(dp([R(exp.description)]));
+    }
+    experimentParagraphs.push(blank());
+
+    // 5. Program Header
+    experimentParagraphs.push(dp([B('Program:')]));
+
+    // 6. Python Code (Read, Customize Inputs, Format)
+    const codeRaw = fs.readFileSync(exp.codeFile, 'utf8');
+    const codeModified = modifyInputs(exp.id, codeRaw, studentIndex);
+    const codeLinesClean = processPythonCode(codeModified);
+    for (const line of codeLinesClean) {
+      experimentParagraphs.push(code(line));
+    }
+    experimentParagraphs.push(blank());
+
+    // 7. INPUT (only if hasInput is true)
+    if (exp.hasInput) {
+      experimentParagraphs.push(dp([B('INPUT: ')]));
+      experimentParagraphs.push(blank());
+    }
+
+    // 8. OUTPUT Header
+    experimentParagraphs.push(dp([B('OUTPUT:-')]));
+
+    // 9. Output lines (Execute temp customized script and capture stdout)
+    const tempFile = `temp_aa_exp${exp.id}_${studentIndex}.py`;
+    try {
+      fs.writeFileSync(tempFile, codeModified, 'utf8');
+      const stdout = execSync(`python ${tempFile}`, { encoding: 'utf8' });
+      const stdoutLines = stdout.split(/\r?\n/);
+      if (stdoutLines.length > 0 && stdoutLines[stdoutLines.length - 1] === '') {
+        stdoutLines.pop();
+      }
+      for (const line of stdoutLines) {
+        experimentParagraphs.push(code(line));
+      }
+    } catch (err) {
+      console.error(`Error running ${tempFile}:`, err.message);
+      experimentParagraphs.push(code(`# Error executing script: ${err.message}`));
+    } finally {
+      if (fs.existsSync(tempFile)) {
+        fs.unlinkSync(tempFile);
+      }
+    }
+    experimentParagraphs.push(blank());
+
+    // 10. Conclusion
+    if (exp.conclusion) {
+      experimentParagraphs.push(dp([B('Conclusion:')]));
+      experimentParagraphs.push(dp([R(exp.conclusion)]));
+    }
+  }
 
   const doc = new Document({
     sections: [
@@ -450,10 +563,11 @@ const students = [
 ];
 
 async function run() {
-  for (const student of students) {
-    await generateDocumentForStudent(student.name, student.rollNumber);
+  for (let idx = 0; idx < students.length; idx++) {
+    const student = students[idx];
+    await generateDocumentForStudent(student.name, student.rollNumber, idx);
   }
-  console.log("🎉 All student record files have been successfully compiled!");
+  console.log("🎉 All student record files have been successfully compiled with unique inputs!");
 }
 
 run().catch(console.error);
