@@ -77,9 +77,9 @@ const pageFooter = new Footer({
 // ──────────────────────────────────────────────────────────────
 const pageBorderOpts = {
   pageBorderTop: { style: BorderStyle.THIN_THICK_SMALL_GAP, size: 24, color: '000000', space: 1 },
-  pageBorderBottom: { style: BorderStyle.THIN_THICK_SMALL_GAP, size: 24, color: '000000', space: 1 },
+  pageBorderBottom: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 24, color: '000000', space: 1 },
   pageBorderLeft: { style: BorderStyle.THIN_THICK_SMALL_GAP, size: 24, color: '000000', space: 4 },
-  pageBorderRight: { style: BorderStyle.THIN_THICK_SMALL_GAP, size: 24, color: '000000', space: 4 },
+  pageBorderRight: { style: BorderStyle.THICK_THIN_SMALL_GAP, size: 24, color: '000000', space: 4 },
   display: PageBorderDisplay.ALL_PAGES,
   offsetFrom: PageBorderOffsetFrom.TEXT,
 };
