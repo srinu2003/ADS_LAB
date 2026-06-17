@@ -18,7 +18,6 @@ def karatsuba(x, y):
     # Combine the results
     return z2 * 10**(2 * m) + (z1 - z2 - z0) * 10**m + z0
 
-
 # Example
 x = 4321
 y = 8765

@@ -1,4 +1,6 @@
 import numpy as np
+
+
 def gaussian_elimination(a, b):
     n = len(b)
 
@@ -20,23 +22,18 @@ def gaussian_elimination(a, b):
 
         # Eliminate below pivot
         for j in range(i + 1, n):
-
             factor = a[j][i] / a[i][i]
-
             a[j, i:] -= factor * a[i, i:]
-
             b[j] -= factor * b[i]
 
     # Back Substitution
     x = np.zeros_like(b)
 
     for i in range(n - 1, -1, -1):
-
         x[i] = (b[i] -
                 np.dot(a[i, i + 1:], x[i + 1:])) / a[i][i]
 
     return x
-
 
 # Example
 a = [

@@ -7,7 +7,6 @@ def fractional_knapsack(weights, values, capacity):
 
     # Sort items in descending order of ratio
     ratio.sort(reverse=True, key=lambda x: x[0])
-
     total_value = 0
 
     for r, w, v in ratio:
@@ -23,7 +22,6 @@ def fractional_knapsack(weights, values, capacity):
             break
 
     return total_value
-
 
 # Example
 weights = [10, 20, 30]

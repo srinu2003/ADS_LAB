@@ -1,5 +1,6 @@
 import itertools
 
+
 def assignment_bruteforce(cost_matrix):
     n = len(cost_matrix)
     min_cost = float('inf')
@@ -13,7 +14,6 @@ def assignment_bruteforce(cost_matrix):
             best_assignment = perm
 
     return best_assignment, min_cost
-
 
 # Cost matrix
 cost_matrix = [

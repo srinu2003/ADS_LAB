@@ -18,4 +18,3 @@ graph = [
 
 transitive_closure = warshall_algorithm(graph)
 print("Transitive Closure:", transitive_closure)
-

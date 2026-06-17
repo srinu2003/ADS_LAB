@@ -1,4 +1,6 @@
 import numpy as np
+
+
 def lu_decomposition(matrix):
     n = len(matrix)
     L = np.zeros_like(matrix, dtype=float)
@@ -18,4 +20,3 @@ A = np.array([[4, 3], [6, 3]])
 L, U = lu_decomposition(A)
 print("L:", L)
 print("U:", U)
-

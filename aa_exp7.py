@@ -1,11 +1,8 @@
 def rabin_karp(text, pattern):
-
     d = 256          # Number of characters in the input alphabet
     q = 101          # A prime number
-
     m = len(pattern)
     n = len(text)
-
     h_pattern = 0    # Hash value for pattern
     h_text = 0       # Hash value for text
     h = 1            # Value of d^(m-1) % q
@@ -16,9 +13,7 @@ def rabin_karp(text, pattern):
 
     # Calculate hash values for pattern and first window of text
     for i in range(m):
-
         h_pattern = (d * h_pattern + ord(pattern[i])) % q
-
         h_text = (d * h_text + ord(text[i])) % q
 
     # Slide the pattern over the text
@@ -34,7 +29,6 @@ def rabin_karp(text, pattern):
 
         # Compute hash value for next window
         if i < n - m:
-
             h_text = (
                 d * (h_text - ord(text[i]) * h)
                 + ord(text[i + m])
@@ -42,14 +36,11 @@ def rabin_karp(text, pattern):
 
             # Ensure positive hash value
             if h_text < 0:
-
                 h_text += q
 
     return -1
 
-
 # Example
-
 text = "ABABDABACDABABCABAB"
 
 pattern = "ABABCABAB"
