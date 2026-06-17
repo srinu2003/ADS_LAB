@@ -5,6 +5,7 @@ const {
   PageBreak, LineRuleType, XmlComponent, XmlAttributeComponent,
 } = require('docx');
 const fs = require('fs');
+const { execSync } = require('child_process');
 
 class BordersDoNotSurroundHeader extends XmlComponent {
   constructor() {
@@ -80,12 +81,12 @@ const R = (text) =>
 const blank = () =>
   dp([new TextRun({ text: '', font: TNR, size: 24 })]);
 
-/** Code line (optional left indent for deeply nested lines) */
+/** Code line with monospaced font and preserved indentation spaces */
 function code(text, indentLeft) {
   return new Paragraph({
     spacing: { before: 0, after: 0, line: 240, lineRule: LineRuleType.AUTO },
     indent: indentLeft ? { left: indentLeft } : undefined,
-    children: [new TextRun({ text, font: 'Consolas', size: 20 })],
+    children: [new TextRun({ text, font: 'Consolas', size: 20, preserveSpace: true })],
   });
 }
 
@@ -109,8 +110,6 @@ const pageHeader = new Header({
     }),
   ],
 });
-
-
 
 // ──────────────────────────────────────────────────────────────
 // Footer: "I. M.Tech (CSE), II Sem   [ptab]   Advanced Algorithms Lab"
@@ -152,53 +151,226 @@ const pageBorderOpts = {
 };
 
 // ──────────────────────────────────────────────────────────────
-// First Page — Experiment 1
+// Markdown Parsing & Code Processing
 // ──────────────────────────────────────────────────────────────
-const experiment1 = [
-  // "Experiment-1" — 5 tabs + bold (original indent: start=360)
-  new Paragraph({
-    alignment: AlignmentType.CENTER,
-    children: [B('Experiment-1')],
-  }),
-  blank(),
 
-  // Experiment title
-  dp([B('Experiment: Implement assignment problem using Brute Force method')]),
-  blank(),
+const experimentTitles = {
+  1: "Experiment: Implement assignment problem using Brute Force method",
+  2: "Experiment: Perform multiplication of long integers using divide and conquer method",
+  3: "Experiment: Implement a solution for the knapsack problem using the Greedy method",
+  4: "Experiment: Implement Gaussian elimination method",
+  5: "Experiment: Implement LU decomposition",
+  6: "Experiment: Implement Warshall algorithm",
+  7: "Experiment: Implement the Rabin Karp algorithm",
+  8: "Experiment: Implement the KMP algorithm",
+  9: "Experiment: Implement Horspool algorithm (implemented as Heap Sort)",
+  10: "Experiment: Implement max-flow problem"
+};
 
-  // AIM
-  dp([B('AIM: '), R('To Implement assignment problem using Brute Force Method')]),
-  blank(),
+function parseMarkdown(filePath) {
+  const content = fs.readFileSync(filePath, 'utf8');
+  const sections = content.split(/##\s+Experiment-/i);
 
-  // Description
-  dp([B('Description: ')]),
-  blank(),
+  const experiments = [];
 
-  // Program
-  dp([B('Program:')]),
+  for (let i = 1; i < sections.length; i++) {
+    const rawSection = sections[i];
+    const lines = rawSection.split(/\r?\n/).map(l => l.trimEnd());
 
-  // ── Code block ──
-  ...fs.readFileSync('aa_exp1.py', 'utf8')
-    .split(/\r?\n/)
-    .map(line => code(line)),
-  blank(),
+    const id = parseInt(lines[0].trim(), 10);
 
-  // INPUT
-  dp([B('INPUT: ')]),
-  blank(),
+    let aim = '';
+    let description = '';
+    let conclusion = '';
+    let title = '';
 
-  // OUTPUT
-  dp([B('OUTPUT:-')]),
-  code('Best Assignment: (1, 2, 3, 0)'),
-  code('Minimum Cost: 21'),
-  blank(),
+    let currentField = 'TITLE';
+    let titleLines = [];
+    let descLines = [];
+    let concLines = [];
 
-  // Conclusion
-  dp([B('Conclusion:')]),
-  blank(),
-  blank(),
-  blank(),
-];
+    for (let j = 1; j < lines.length; j++) {
+      const line = lines[j];
+      const lineTrim = line.trim();
+      const lineUpper = lineTrim.toUpperCase();
+
+      if (lineUpper.startsWith('AIM:')) {
+        aim = lineTrim.substring(4).trim();
+        currentField = 'AIM';
+        continue;
+      }
+      if (lineUpper.startsWith('**DESCRIPTION:**')) {
+        currentField = 'DESCRIPTION';
+        const extra = lineTrim.substring(16).trim();
+        if (extra) descLines.push(extra);
+        continue;
+      }
+      if (lineUpper.startsWith('**PROGRAM:**')) {
+        currentField = 'PROGRAM';
+        continue;
+      }
+      if (lineUpper.startsWith('**OUTPUT:-**')) {
+        currentField = 'OUTPUT';
+        continue;
+      }
+      if (lineUpper.startsWith('**CONCLUSION:**')) {
+        currentField = 'CONCLUSION';
+        const extra = lineTrim.substring(15).trim();
+        if (extra) concLines.push(extra);
+        continue;
+      }
+      if (lineTrim.startsWith('##')) {
+        break;
+      }
+
+      if (currentField === 'TITLE') {
+        if (lineTrim) titleLines.push(lineTrim);
+      } else if (currentField === 'DESCRIPTION') {
+        if (lineTrim) descLines.push(lineTrim);
+      } else if (currentField === 'CONCLUSION') {
+        if (lineTrim) concLines.push(lineTrim);
+      }
+    }
+
+    title = titleLines.join(' ');
+    description = descLines.join(' ');
+    conclusion = concLines.join(' ');
+
+    // Override/fallback using experimentTitles mapping
+    title = experimentTitles[id] || title || `Experiment ${id}`;
+
+    experiments.push({
+      id,
+      title,
+      aim,
+      description,
+      conclusion,
+      codeFile: `aa_exp${id}.py`,
+      hasInput: id === 1,
+      hasConclusion: !!conclusion,
+    });
+  }
+
+  return experiments;
+}
+
+function processPythonCode(codeContent) {
+  const lines = codeContent.split(/\r?\n/);
+  const processedLines = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // 1. Skip pure comment lines
+    if (trimmed.startsWith('#')) {
+      continue;
+    }
+
+    // 2. Strip inline comments
+    let cleanedLine = line;
+    const hashIdx = line.indexOf('#');
+    if (hashIdx !== -1) {
+      cleanedLine = line.substring(0, hashIdx).trimEnd();
+    }
+
+    // 3. Skip consecutive blank lines
+    if (cleanedLine.trim() === '') {
+      if (processedLines.length > 0 && processedLines[processedLines.length - 1].trim() !== '') {
+        processedLines.push('');
+      }
+      continue;
+    }
+
+    processedLines.push(cleanedLine);
+  }
+
+  // Clean up trailing empty lines
+  while (processedLines.length > 0 && processedLines[processedLines.length - 1].trim() === '') {
+    processedLines.pop();
+  }
+
+  return processedLines;
+}
+
+// ──────────────────────────────────────────────────────────────
+// Generate Experiment Paragraphs
+// ──────────────────────────────────────────────────────────────
+const experimentParagraphs = [];
+const parsedExps = parseMarkdown('lab_record_clean.md');
+
+for (const exp of parsedExps) {
+  // Page break before subsequent experiments
+  if (exp.id > 1) {
+    experimentParagraphs.push(new Paragraph({ children: [new PageBreak()] }));
+  }
+
+  // 1. Experiment Header
+  experimentParagraphs.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [B(`Experiment-${exp.id}`)],
+    })
+  );
+  experimentParagraphs.push(blank());
+
+  // 2. Title
+  experimentParagraphs.push(dp([B(exp.title)]));
+  experimentParagraphs.push(blank());
+
+  // 3. AIM
+  experimentParagraphs.push(dp([B('AIM: '), R(exp.aim)]));
+  experimentParagraphs.push(blank());
+
+  // 4. Description
+  experimentParagraphs.push(dp([B('Description: ')]));
+  if (exp.description) {
+    experimentParagraphs.push(dp([R(exp.description)]));
+  }
+  experimentParagraphs.push(blank());
+
+  // 5. Program Header
+  experimentParagraphs.push(dp([B('Program:')]));
+
+  // 6. Python Code (Read, Clean Comments, Format)
+  const codeRaw = fs.readFileSync(exp.codeFile, 'utf8');
+  const codeLinesClean = processPythonCode(codeRaw);
+  for (const line of codeLinesClean) {
+    experimentParagraphs.push(code(line));
+  }
+  experimentParagraphs.push(blank());
+
+  // 7. INPUT (only if hasInput is true)
+  if (exp.hasInput) {
+    experimentParagraphs.push(dp([B('INPUT: ')]));
+    experimentParagraphs.push(blank());
+  }
+
+  // 8. OUTPUT Header
+  experimentParagraphs.push(dp([B('OUTPUT:-')]));
+
+  // 9. Output lines (Execute script and capture stdout)
+  try {
+    const stdout = execSync(`python ${exp.codeFile}`, { encoding: 'utf8' });
+    const stdoutLines = stdout.split(/\r?\n/);
+    if (stdoutLines.length > 0 && stdoutLines[stdoutLines.length - 1] === '') {
+      stdoutLines.pop();
+    }
+    for (const line of stdoutLines) {
+      experimentParagraphs.push(code(line));
+    }
+  } catch (err) {
+    console.error(`Error running ${exp.codeFile}:`, err.message);
+    experimentParagraphs.push(code(`# Error executing script: ${err.message}`));
+  }
+  experimentParagraphs.push(blank());
+
+  // 10. Conclusion
+  if (exp.conclusion) {
+    experimentParagraphs.push(dp([B('Conclusion:')]));
+    experimentParagraphs.push(dp([R(exp.conclusion)]));
+    // experimentParagraphs.push(blank());
+  }
+}
 
 // ──────────────────────────────────────────────────────────────
 // Last Page — Additional Experiment / Micro Project
@@ -221,13 +393,9 @@ function centeredBold(text) {
 }
 
 const lastPage = [
-  // push content toward vertical center
   ...Array(14).fill(null).map(centeredBlank),
-
   centeredBold('Additional Experiment'),
-
   ...Array(6).fill(null).map(centeredBlank),
-
   centeredBold('MICRO PROJECT'),
 ];
 
@@ -247,7 +415,7 @@ const doc = new Document({
       headers: { default: pageHeader },
       footers: { default: pageFooter },
       children: [
-        ...experiment1,
+        ...experimentParagraphs,
 
         // ── Page break → Last Page ──
         new Paragraph({ children: [new PageBreak()] }),

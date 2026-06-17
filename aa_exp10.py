@@ -4,11 +4,8 @@ from collections import deque
 def bfs(capacity, flow, source, sink, parent):
 
     visited = [False] * len(capacity)
-
     queue = deque([source])
-
     visited[source] = True
-
     parent[source] = -1
 
 
@@ -19,17 +16,13 @@ def bfs(capacity, flow, source, sink, parent):
         for v in range(len(capacity)):
 
             # Check residual capacity
-            if (not visited[v] and
-                    capacity[u][v] - flow[u][v] > 0):
+            if (not visited[v] and capacity[u][v] - flow[u][v] > 0):
 
                 queue.append(v)
-
                 visited[v] = True
-
                 parent[v] = u
 
                 if v == sink:
-
                     return True
 
     return False
@@ -41,9 +34,7 @@ def ford_fulkerson(capacity, source, sink):
 
     # Initialize flow matrix
     flow = [[0] * n for _ in range(n)]
-
     parent = [-1] * n
-
     max_flow = 0
 
 
@@ -51,7 +42,6 @@ def ford_fulkerson(capacity, source, sink):
     while bfs(capacity, flow, source, sink, parent):
 
         path_flow = float('inf')
-
         s = sink
 
 
@@ -63,7 +53,6 @@ def ford_fulkerson(capacity, source, sink):
                 capacity[parent[s]][s] -
                 flow[parent[s]][s]
             )
-
             s = parent[s]
 
 
@@ -73,15 +62,10 @@ def ford_fulkerson(capacity, source, sink):
 
         # Update residual capacities
         v = sink
-
         while v != source:
-
             u = parent[v]
-
             flow[u][v] += path_flow
-
             flow[v][u] -= path_flow
-
             v = parent[v]
 
     return max_flow
@@ -93,15 +77,10 @@ def ford_fulkerson(capacity, source, sink):
 capacity = [
 
     [0, 16, 13, 0, 0, 0],
-
     [0, 0, 10, 12, 0, 0],
-
     [0, 4, 0, 0, 14, 0],
-
     [0, 0, 9, 0, 0, 20],
-
     [0, 0, 0, 7, 0, 4],
-
     [0, 0, 0, 0, 0, 0]
 
 ]
